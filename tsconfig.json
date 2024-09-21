@@ -21,6 +21,6 @@
     "forceConsistentCasingInFileNames": false,
     "noFallthroughCasesInSwitch": false
   },
-  "include": ["src/**/*"], // Ensure TypeScript includes your source files
+  "include": ["src/**/*", "test/*"], // Ensure TypeScript includes your source files
   "exclude": ["node_modules", "dist"] // Exclude unnecessary files
 }
