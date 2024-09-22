@@ -140,6 +140,6 @@ export class UserService {
     return {
       username: result.username,
       name: result.name,
-    }
+    };
   }
 }
