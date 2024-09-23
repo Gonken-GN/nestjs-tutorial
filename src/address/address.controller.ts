@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   Param,
@@ -14,6 +15,7 @@ import {
   AddressResponse,
   CreateAddressRequest,
   GetAddressRequest,
+  RemoveAddressRequest,
   UpdateAddressRequest,
 } from '../model/address.model';
 import { User } from '@prisma/client';
@@ -68,6 +70,36 @@ export class AddressController {
     request.contact_id = contactid;
     request.id = addressId;
     const result = await this.addressService.update(user, request);
+    return {
+      data: result,
+    };
+  }
+
+  // Remove address
+  @Delete('/:addressId')
+  @HttpCode(200)
+  async remove(
+    @Auth() user: User,
+    @Param('contactId', ParseIntPipe) contactid: number,
+    @Param('addressId', ParseIntPipe) addressId: number,
+  ): Promise<WebResponse<boolean>> {
+    const request: RemoveAddressRequest = {
+      contact_id: contactid,
+      address_id: addressId,
+    };
+    await this.addressService.remove(user, request);
+    return {
+      data: true,
+    };
+  }
+
+  @Get('/')
+  @HttpCode(200)
+  async list(
+    @Auth() user: User,
+    @Param('contactId', ParseIntPipe) contactid: number,
+  ): Promise<WebResponse<AddressResponse[]>> {
+    const result = await this.addressService.list(user, contactid);
     return {
       data: result,
     };

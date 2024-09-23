@@ -8,6 +8,7 @@ import {
   AddressResponse,
   CreateAddressRequest,
   GetAddressRequest,
+  RemoveAddressRequest,
   UpdateAddressRequest,
 } from '../model/address.model';
 import { AddressValidation } from './address.validation';
@@ -94,6 +95,45 @@ export class AddressService {
     return this.toAddressResponse(address);
   }
 
+  async remove(
+    user: User,
+    request: RemoveAddressRequest,
+  ): Promise<AddressResponse> {
+    const removeRequest: RemoveAddressRequest = this.validationService.validate(
+      AddressValidation.DELETE,
+      request,
+    );
+
+    await this.contactService.checkContactExist(
+      user.username,
+      removeRequest.contact_id,
+    );
+
+    let address = await this.checkAddressMustExist(
+      removeRequest.contact_id,
+      removeRequest.address_id,
+    );
+
+    address = await this.prismaService.address.delete({
+      where: {
+        id: address.id,
+        contact_id: address.contact_id,
+      },
+    });
+
+    return this.toAddressResponse(address);
+  }
+
+  async list(user: User, contactId: number): Promise<AddressResponse[]> {
+    await this.contactService.checkContactExist(user.username, contactId);
+    const addresses = await this.prismaService.address.findMany({
+      where: {
+        contact_id: contactId,
+      },
+    });
+
+    return addresses.map((address) => this.toAddressResponse(address));
+  }
   async checkAddressMustExist(
     contactId: number,
     addressId: number,
