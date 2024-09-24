@@ -7,7 +7,10 @@ import { ValidationService } from './validation.service';
 import { APP_FILTER } from '@nestjs/core';
 import { ErrorFilter } from './error.filter';
 import { AuthMiddleware } from './auth.middleware';
+import Redis from 'ioredis';
+import * as dotenv from 'dotenv';
 
+dotenv.config();
 @Global()
 @Module({
   imports: [
@@ -21,6 +24,15 @@ import { AuthMiddleware } from './auth.middleware';
     }),
   ],
   providers: [
+    {
+      provide: 'REDIS_CLIENT',
+      useFactory: () => {
+        return new Redis({
+          host: process.env.REDIS_HOST,
+          port: parseInt(process.env.REDIS_PORT),
+        });
+      },
+    },
     PrismaService,
     ValidationService,
     {
@@ -28,7 +40,7 @@ import { AuthMiddleware } from './auth.middleware';
       useClass: ErrorFilter,
     },
   ],
-  exports: [PrismaService, ValidationService],
+  exports: [PrismaService, ValidationService, 'REDIS_CLIENT'],
 })
 export class CommonModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
