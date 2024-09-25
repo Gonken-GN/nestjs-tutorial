@@ -13,6 +13,7 @@ import { UserValidation } from './user.validation';
 import * as bcrypt from 'bcrypt';
 import { v4 as uuid } from 'uuid';
 import { User } from '@prisma/client';
+import { RedisService } from '../common/redis.service';
 
 @Injectable()
 export class UserService {
@@ -20,7 +21,9 @@ export class UserService {
     private readonly validationService: ValidationService,
     @Inject(WINSTON_MODULE_PROVIDER) private readonly logger: Logger,
     private readonly prismaService: PrismaService,
+    private readonly redisService: RedisService,
   ) {}
+  private readonly USER_CACHE_TTL = 60 * 60; // 1 hour
 
   // Register user
   async register(request: RegisterUserRequest): Promise<UserResponse> {
@@ -93,10 +96,36 @@ export class UserService {
   }
 
   async get(user: User): Promise<UserResponse> {
-    return {
+    const cacheKey = `user:${user.username}`;
+
+    // Try to get the user data from Redis cache
+    const cachedUser = await this.redisService.get<UserResponse>(cacheKey);
+
+    if (cachedUser) {
+      console.log('=========cachedUser===========', cachedUser);
+      return cachedUser;
+    }
+
+    // If not cached, prepare the user response
+    const userResponse: UserResponse = {
       username: user.username,
       name: user.name,
     };
+
+    // Log what is being cached
+    console.log('=========userResponse to be cached===========', userResponse);
+
+    // Ensure that the response is serialized correctly before caching
+    const serializedResponse = JSON.stringify(userResponse);
+
+    // Cache the response in Redis for future requests
+    await this.redisService.set(
+      cacheKey,
+      serializedResponse,
+      this.USER_CACHE_TTL,
+    );
+
+    return userResponse;
   }
 
   async update(user: User, request: UpdateUserRequest): Promise<UserResponse> {
@@ -121,6 +150,7 @@ export class UserService {
       data: user,
     });
 
+    await this.redisService.delete(`user:${user.username}`);
     return {
       name: result.name,
       username: result.username,

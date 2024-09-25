@@ -13,8 +13,11 @@ export class RedisService {
     }
   }
 
-  async get(key: string): Promise<string | null> {
-    return await this.redisClient.get(key);
+  async get<T>(key: string): Promise<T | null> {
+    const value = await this.redisClient.get(key);
+    if (!value) return null;
+
+    return JSON.parse(value) as T;
   }
 
   async delete(key: string): Promise<number> {
