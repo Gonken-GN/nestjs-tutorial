@@ -6,6 +6,8 @@ import { Logger } from 'winston';
 import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
 import { TestService } from './test.service';
 import { TestModule } from './test.module';
+import { RedisService } from '../src/common/redis.service';
+import { mockRedisClient } from './mock/redis';
 
 describe('UserController', () => {
   let app: INestApplication;
@@ -15,6 +17,12 @@ describe('UserController', () => {
   beforeEach(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule, TestModule],
+      providers: [
+        {
+          provide: RedisService,
+          useValue: mockRedisClient,
+        },
+      ],
     }).compile();
 
     app = moduleFixture.createNestApplication();
@@ -24,6 +32,13 @@ describe('UserController', () => {
     testService = app.get(TestService);
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  afterAll(async () => {
+    await mockRedisClient.disconnect();
+  });
   // Register user test
   describe('POST /api/users', () => {
     beforeEach(async () => {
@@ -136,16 +151,43 @@ describe('UserController', () => {
       expect(response.body.errors).toBeDefined();
     });
 
-    it('should be able to get users', async () => {
+    it('should be able to get users (cached)', async () => {
+      // Mock Redis to return cached user
+      mockRedisClient.get.mockResolvedValueOnce(
+        JSON.stringify({ username: 'test', name: 'test' }),
+      );
+
       const response = await request(app.getHttpServer())
         .get('/api/users/current')
         .set('Authorization', 'test');
 
-      logger.info(response.body);
+      expect(response.status).toBe(200);
+      expect(response.body.data.username).toBe('test');
+      expect(response.body.data.name).toBe('test');
+
+      // Ensure that Redis `get` was called with the correct key
+      expect(mockRedisClient.get).toHaveBeenCalledWith('user:test');
+    });
+
+    it('should be able to get users (not cached)', async () => {
+      // Simulate cache miss by having Redis `get` return null
+      mockRedisClient.get.mockResolvedValueOnce(null);
+
+      const response = await request(app.getHttpServer())
+        .get('/api/users/current')
+        .set('Authorization', 'test');
 
       expect(response.status).toBe(200);
       expect(response.body.data.username).toBe('test');
       expect(response.body.data.name).toBe('test');
+
+      // Ensure Redis `set` was called to store the user in cache
+      expect(mockRedisClient.set).toHaveBeenCalledWith(
+        'user:test', // Cache key
+        expect.any(String), // Serialized user data
+        'EX', // Expiry flag
+        expect.any(Number), // Time to live (TTL)
+      );
     });
   });
 

@@ -9,6 +9,7 @@ import { ErrorFilter } from './error.filter';
 import { AuthMiddleware } from './auth.middleware';
 import Redis from 'ioredis';
 import * as dotenv from 'dotenv';
+import { RedisService } from './redis.service';
 
 dotenv.config();
 @Global()
@@ -39,8 +40,9 @@ dotenv.config();
       provide: APP_FILTER,
       useClass: ErrorFilter,
     },
+    RedisService,
   ],
-  exports: [PrismaService, ValidationService, 'REDIS_CLIENT'],
+  exports: [PrismaService, ValidationService, 'REDIS_CLIENT', RedisService],
 })
 export class CommonModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
